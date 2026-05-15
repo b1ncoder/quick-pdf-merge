@@ -1,0 +1,20 @@
+__pycache__/
+*.py[cod]
+*.pyo
+*.log
+*.tmp
+.venv/
+venv/
+build/
+dist/
+*.spec
+
+# Generated during installation. It contains local absolute paths.
+merge_pdf_sendto.vbs
+tc_usermenu_hint.txt
+
+# Legacy garbled document. README.md is the clean public document.
+readme.txt
+
+# Legacy GUI prototype. The context-menu utility uses merge_pdf_direct.py.
+merge_pdf.py
