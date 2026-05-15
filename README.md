@@ -29,7 +29,7 @@ Run from PowerShell:
 
 ```powershell
 Set-Location 'C:\path\to\PDF Context Menu Merger'
-& '.\install_context_menu.bat'
+& '.\setup_context_menu.bat'
 ```
 
 The installer registers:
@@ -48,7 +48,7 @@ Select multiple PDF files -> Right click -> Send to -> Merge PDF menu item
 Run:
 
 ```powershell
-& '.\uninstall_context_menu.bat'
+& '.\setup_context_menu.bat' uninstall
 ```
 
 ## Notes

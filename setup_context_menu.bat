@@ -1,10 +1,26 @@
 @echo off
 setlocal
 
-echo.
-echo PDF direct merge tool - install context menu
-echo.
+if /I "%~1"=="uninstall" goto uninstall
+if /I "%~1"=="remove" goto uninstall
+if /I "%~1"=="-" goto help
+if /I "%~1"=="/?" goto help
+if /I "%~1"=="--help" goto help
+goto install
 
+:common_paths
+set "REG_PATH=HKCU\Software\Classes\SystemFileAssociations\.pdf\shell\MergePDFDirect"
+set "OLD_REG_PATH=HKCU\Software\Classes\SystemFileAssociations\.pdf\shell\MergePDF"
+set "OLD_ADMIN_REG_PATH=HKCR\SystemFileAssociations\.pdf\shell\MergePDF"
+set "SENDTO=%APPDATA%\Microsoft\Windows\SendTo"
+set "LAUNCHER=%~dp0merge_pdf_sendto.vbs"
+set "OLD_SENDTO_VBS=%SENDTO%\Merge PDF.vbs"
+set "OLD_SENDTO_BAT=%SENDTO%\Merge PDF.bat"
+for /f "usebackq delims=" %%i in (`powershell -NoProfile -ExecutionPolicy Bypass -Command "Join-Path '%SENDTO%' (([string]::Concat([char]21512,[char]24182,'PDF')) + '.lnk')"`) do set "SENDTO_LINK=%%i"
+for /f "usebackq delims=" %%i in (`powershell -NoProfile -ExecutionPolicy Bypass -Command "Join-Path '%SENDTO%' (([string]::Concat([char]21512,[char]24182,'PDF')) + '.vbs')"`) do set "OLD_SENDTO_CN_VBS=%%i"
+exit /b 0
+
+:find_python
 set "PYTHON_CMD="
 for %%p in (python python3 py) do (
     if not defined PYTHON_CMD (
@@ -14,7 +30,6 @@ for %%p in (python python3 py) do (
 
 if not defined PYTHON_CMD (
     echo [ERROR] Python was not found. Please install Python 3.8+ first.
-    pause
     exit /b 1
 )
 echo [OK] Python command: %PYTHON_CMD%
@@ -23,7 +38,6 @@ set "PYTHON_EXE="
 for /f "usebackq delims=" %%i in (`%PYTHON_CMD% -c "import sys; print(sys.executable)"`) do set "PYTHON_EXE=%%i"
 if not defined PYTHON_EXE (
     echo [ERROR] Could not locate python.exe.
-    pause
     exit /b 1
 )
 echo [OK] python.exe: %PYTHON_EXE%
@@ -32,35 +46,39 @@ for %%i in ("%PYTHON_EXE%") do set "PYTHONW_EXE=%%~dpipythonw.exe"
 if not exist "%PYTHONW_EXE%" (
     echo [ERROR] pythonw.exe was not found next to python.exe.
     echo Expected: %PYTHONW_EXE%
-    pause
     exit /b 1
 )
 echo [OK] pythonw.exe: %PYTHONW_EXE%
+exit /b 0
+
+:install
+echo.
+echo PDF direct merge tool - install context menu
+echo.
+
+call :common_paths
+call :find_python
+if errorlevel 1 (
+    pause
+    exit /b 1
+)
 
 set "SCRIPT=%~dp0merge_pdf_direct.py"
 if not exist "%SCRIPT%" (
     echo [ERROR] merge_pdf_direct.py was not found.
-    echo Please keep this install script in the same folder as merge_pdf_direct.py.
+    echo Please keep this setup script in the same folder as merge_pdf_direct.py.
     pause
     exit /b 1
 )
 echo [OK] Merge script: %SCRIPT%
 
-set "REG_PATH=HKCU\Software\Classes\SystemFileAssociations\.pdf\shell\MergePDFDirect"
-set "OLD_REG_PATH=HKCU\Software\Classes\SystemFileAssociations\.pdf\shell\MergePDF"
-set "OLD_ADMIN_REG_PATH=HKCR\SystemFileAssociations\.pdf\shell\MergePDF"
-set "SENDTO=%APPDATA%\Microsoft\Windows\SendTo"
-set "LAUNCHER=%~dp0merge_pdf_sendto.vbs"
-set "OLD_SENDTO_VBS=%SENDTO%\Merge PDF.vbs"
-set "OLD_SENDTO_BAT=%SENDTO%\Merge PDF.bat"
 set "EXISTING=0"
-for /f "usebackq delims=" %%i in (`powershell -NoProfile -ExecutionPolicy Bypass -Command "Join-Path '%SENDTO%' (([string]::Concat([char]21512,[char]24182,'PDF')) + '.lnk')"`) do set "SENDTO_LINK=%%i"
-
 reg query "%REG_PATH%" >nul 2>&1 && set "EXISTING=1"
 reg query "%OLD_REG_PATH%" >nul 2>&1 && set "EXISTING=1"
 reg query "%OLD_ADMIN_REG_PATH%" >nul 2>&1 && set "EXISTING=1"
 if exist "%SENDTO_LINK%" set "EXISTING=1"
 if exist "%OLD_SENDTO_VBS%" set "EXISTING=1"
+if exist "%OLD_SENDTO_CN_VBS%" set "EXISTING=1"
 if exist "%OLD_SENDTO_BAT%" set "EXISTING=1"
 
 if "%EXISTING%"=="1" (
@@ -103,6 +121,7 @@ echo [*] Creating hidden SendTo launcher for multiple selected PDF files...
 if not exist "%SENDTO%" mkdir "%SENDTO%"
 if exist "%OLD_SENDTO_BAT%" del "%OLD_SENDTO_BAT%"
 if exist "%OLD_SENDTO_VBS%" del "%OLD_SENDTO_VBS%"
+if exist "%OLD_SENDTO_CN_VBS%" del "%OLD_SENDTO_CN_VBS%"
 if exist "%SENDTO_LINK%" del "%SENDTO_LINK%"
 (
     echo Set shell = CreateObject^("WScript.Shell"^)
@@ -158,3 +177,60 @@ echo   Successful merges are silent.
 echo   Error cases display a message box.
 echo.
 pause
+exit /b 0
+
+:uninstall
+echo.
+echo PDF direct merge tool - uninstall context menu
+echo.
+
+call :common_paths
+
+set "FOUND=0"
+reg query "%REG_PATH%" >nul 2>&1 && set "FOUND=1"
+reg query "%OLD_REG_PATH%" >nul 2>&1 && set "FOUND=1"
+reg query "%OLD_ADMIN_REG_PATH%" >nul 2>&1 && set "FOUND=1"
+if exist "%OLD_SENDTO_VBS%" set "FOUND=1"
+if exist "%SENDTO_LINK%" set "FOUND=1"
+if exist "%OLD_SENDTO_CN_VBS%" set "FOUND=1"
+if exist "%OLD_SENDTO_BAT%" set "FOUND=1"
+if exist "%LAUNCHER%" set "FOUND=1"
+
+if "%FOUND%"=="0" (
+    echo [INFO] No installed PDF merge context menu was detected.
+    pause
+    exit /b 0
+)
+
+choice /C YN /M "Remove PDF merge context menu"
+if errorlevel 2 (
+    echo Uninstall cancelled.
+    pause
+    exit /b 0
+)
+
+reg delete "%REG_PATH%" /f >nul 2>&1
+reg delete "%OLD_REG_PATH%" /f >nul 2>&1
+reg delete "%OLD_ADMIN_REG_PATH%" /f >nul 2>&1
+if exist "%OLD_SENDTO_VBS%" del "%OLD_SENDTO_VBS%"
+if exist "%SENDTO_LINK%" del "%SENDTO_LINK%"
+if exist "%OLD_SENDTO_CN_VBS%" del "%OLD_SENDTO_CN_VBS%"
+if exist "%OLD_SENDTO_BAT%" del "%OLD_SENDTO_BAT%"
+if exist "%LAUNCHER%" del "%LAUNCHER%"
+
+echo.
+echo Uninstall completed.
+echo If Explorer does not refresh immediately, restart Explorer or sign in again.
+echo.
+pause
+exit /b 0
+
+:help
+echo.
+echo PDF direct merge tool setup
+echo.
+echo Usage:
+echo   setup_context_menu.bat
+echo   setup_context_menu.bat uninstall
+echo.
+exit /b 0
